@@ -1,0 +1,12 @@
+{
+  "name": "ai-minesweeper",
+  "private": true,
+  "type": "module",
+  "description": "Minesweeper for humans and LLMs via cli2api — no mine map ever leaves process memory",
+  "scripts": {
+    "start": "node server.mjs",
+    "bench": "node bench.mjs",
+    "gateway": "node gateway.mjs",
+    "report": "node report.mjs"
+  }
+}

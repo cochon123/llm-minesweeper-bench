@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Minesweeper</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {
+      --silver: #c0c0c0;
+      --face: #c0c0c0;
+      --hidden: #c0c0c0;
+      --open: #bdbdbd;
+      --red: #d00;
+      --bg: #2a3a2a;
+      --panel: #1b241b;
+      --ink: #e8f0e4;
+      --muted: #8fa38a;
+      --accent: #c6f04d;
+      --line: #314331;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "DM Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(800px 400px at 80% -10%, #3a4a28 0%, transparent 50%),
+        #243024;
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    header.app {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 16px; padding: 22px 28px 10px; max-width: 1400px; margin: 0 auto;
+    }
+    header.app h1 { margin: 0; font-size: 28px; letter-spacing: -.03em; }
+    header.app p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .tabs { display: flex; gap: 8px; }
+    .tabs button {
+      background: transparent; color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 6px 14px; cursor: pointer;
+    }
+    .tabs button.on { color: #111; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+    .wrap { display: grid; grid-template-columns: 1fr 340px; gap: 20px; max-width: 1400px; margin: 0 auto; padding: 12px 28px 40px; }
+    .window {
+      background: var(--silver); color: #111; padding: 8px; border: 2px solid #fff;
+      border-right-color: #808080; border-bottom-color: #808080;
+      box-shadow: 4px 4px 0 #1118; width: max-content; max-width: 100%;
+    }
+    .titlebar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff; font-weight: 700; font-size: 13px; padding: 4px 8px; margin-bottom: 8px;
+    }
+    .hud {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--silver); border: 2px solid #808080; border-right-color: #fff; border-bottom-color: #fff;
+      padding: 6px 8px; margin-bottom: 8px;
+    }
+    .lcd {
+      background: #000; color: #f22; font-family: "Courier New", monospace; font-size: 22px;
+      padding: 2px 8px; min-width: 54px; text-align: right; letter-spacing: 2px;
+    }
+    .face {
+      width: 36px; height: 36px; font-size: 22px; cursor: pointer;
+      background: var(--silver); border: 3px solid #fff; border-right-color: #808080; border-bottom-color: #808080;
+    }
+    .board {
+      display: grid; background: #808080; border: 3px solid #808080; border-right-color: #fff; border-bottom-color: #fff;
+    }
+    .cell {
+      width: 18px; height: 18px; display: grid; place-items: center;
+      font: 700 12px/1 "Tahoma", sans-serif; user-select: none; cursor: pointer;
+      background: var(--hidden);
+      border: 2px solid #fff; border-right-color: #808080; border-bottom-color: #808080;
+    }
+    .cell.open {
+      background: #bdbdbd; border: 1px solid #808080; cursor: default;
+    }
+    .cell.flag { color: #b00; }
+    .cell.mine { background: #d33; color: #111; }
+    .cell.hit { background: #f00; }
+    .n1 { color: #00f; } .n2 { color: #008000; } .n3 { color: #ff0000; }
+    .n4 { color: #000080; } .n5 { color: #800000; } .n6 { color: #008080; }
+    .n7 { color: #000; } .n8 { color: #808080; }
+    .side { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .side h2 { margin: 0 0 10px; font-size: 15px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+    select, button.act, input {
+      width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+      background: #121812; color: var(--ink);
+    }
+    button.act { background: var(--accent); color: #111; font-weight: 700; cursor: pointer; margin-top: 12px; }
+    button.act.ghost { background: transparent; color: var(--accent); }
+    .log {
+      height: 220px; overflow: auto; background: #0e140e; border-radius: 8px; padding: 8px;
+      font: 12px/1.45 ui-monospace, monospace; color: #b6c7b0; margin-top: 12px; white-space: pre-wrap;
+    }
+    .sizes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .sizes button {
+      background: #121812; color: var(--ink); border: 1px solid var(--line); border-radius: 999px;
+      padding: 4px 10px; cursor: pointer; font-size: 12px;
+    }
+    .sizes button.on { background: var(--accent); color: #111; font-weight: 700; }
+    #view-results { display: none; max-width: 1400px; margin: 0 auto; padding: 0 28px 48px; }
+    .plot { background: #171d16; border: 1px solid var(--line); border-radius: 12px; margin: 0 0 16px; }
+    .note { color: var(--muted); font-size: 13px; max-width: 70ch; }
+    @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } .cell { width: 14px; height: 14px; font-size: 10px; } }
+  </style>
+</head>
+<body>
+  <header class="app">
+    <div>
+      <h1>AI Minesweeper</h1>
+      <p>Play yourself, or hand the board to a local CLI model through cli2api. Benchmark games are identical across models: same seeds, same mine maps, same opening.</p>
+    </div>
+    <div class="tabs">
+      <button class="on" id="tab-play">Play</button>
+      <button id="tab-results">Results</button>
+    </div>
+  </header>
+
+  <div class="wrap" id="view-play">
+    <div>
+      <div class="window" id="window">
+        <div class="titlebar">Minesweeper — isolated LLM match</div>
+        <div class="hud">
+          <div class="lcd" id="mines">010</div>
+          <button class="face" id="face" title="New game">🙂</button>
+          <div class="lcd" id="time">000</div>
+        </div>
+        <div class="board" id="board"></div>
+      </div>
+    </div>
+    <aside class="side">
+      <h2>New game</h2>
+      <div class="sizes">
+        <button data-w="9" data-h="9" data-m="10" class="on">Beginner</button>
+        <button data-w="16" data-h="16" data-m="40">Intermediate</button>
+        <button data-w="30" data-h="16" data-m="99">Expert</button>
+        <button data-w="50" data-h="50">50×50 bench</button>
+      </div>
+      <button class="act" id="new">New board</button>
+      <h2 style="margin-top:22px">LLM player</h2>
+      <label>Model</label>
+      <select id="model"></select>
+      <button class="act" id="ai">Let the model play this size</button>
+      <button class="act ghost" id="bench">Run 10×50×50 benchmark</button>
+      <div class="log" id="log">Ready. Left-click opens, right-click flags, double-click chords.
+Mines are hidden from the model. First click is always safe.</div>
+    </aside>
+  </div>
+
+  <section id="view-results">
+    <p class="note">Horizontal box plots over the recorded games: progress (how much of the safe board was cleared), tokens, and wall-clock time. Win rate is the share of boards fully solved.</p>
+    <p><a href="/report.html" style="color:#c6f04d">Open the standalone report</a></p>
+    <div class="plot"><div id="box-progress"></div></div>
+    <div class="plot"><div id="box-tokens"></div></div>
+    <div class="plot"><div id="box-time"></div></div>
+  </section>
+
+  <script>
+    let game = null;
+    let timer = null;
+    let elapsed = 0;
+    let size = { width: 9, height: 9, mines: 10 };
+    const $ = (id) => document.getElementById(id);
+    const log = (msg) => { const el = $("log"); el.textContent = msg + "\n" + el.textContent; };
+
+    document.querySelectorAll(".sizes button").forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll(".sizes button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        size = { width: +btn.dataset.w, height: +btn.dataset.h, mines: btn.dataset.m ? +btn.dataset.m : undefined };
+      };
+    });
+
+    $("tab-play").onclick = () => { $("tab-play").classList.add("on"); $("tab-results").classList.remove("on"); $("view-play").style.display = "grid"; $("view-results").style.display = "none"; };
+    $("tab-results").onclick = () => { $("tab-results").classList.add("on"); $("tab-play").classList.remove("on"); $("view-play").style.display = "none"; $("view-results").style.display = "block"; loadResults(); };
+
+    async function newGame() {
+      const body = { width: size.width, height: size.height };
+      if (size.mines) body.mines = size.mines;
+      game = await (await fetch("/api/games", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+      elapsed = 0;
+      $("time").textContent = "000";
+      $("face").textContent = "🙂";
+      draw();
+      clearInterval(timer);
+      timer = setInterval(() => {
+        if (game.status === "playing") {
+          elapsed += 1;
+          $("time").textContent = String(Math.min(999, elapsed)).padStart(3, "0");
+        }
+      }, 1000);
+    }
+
+    function draw() {
+      if (!game) return;
+      const board = $("board");
+      const sizePx = game.width >= 40 ? 11 : game.width >= 20 ? 14 : 18;
+      board.style.gridTemplateColumns = `repeat(${game.width}, ${sizePx}px)`;
+      const mineSet = new Set((game.mineMap || []).map(([r, c]) => r + "," + c));
+      const hit = game.hit ? game.hit.join(",") : "";
+      let html = "";
+      game.board.forEach((row, r) => {
+        [...row].forEach((ch, c) => {
+          const key = r + "," + c;
+          let cls = "cell";
+          let text = "";
+          if (ch === "F") { cls += " flag"; text = "▶"; }
+          else if (ch !== ".") {
+            cls += " open";
+            if (ch === "*") { cls += mineSet.has(key) ? " mine" : " mine"; text = "●"; if (key === hit) cls += " hit"; }
+            else if (ch !== "0") { cls += " n" + ch; text = ch; }
+          }
+          html += `<div class="${cls}" data-r="${r}" data-c="${c}" style="width:${sizePx}px;height:${sizePx}px;font-size:${Math.max(8, sizePx - 6)}px">${text}</div>`;
+        });
+      });
+      board.innerHTML = html;
+      $("mines").textContent = String(Math.max(-99, game.minesLeft)).padStart(3, "0").replace("-", "−");
+      if (game.status === "won") $("face").textContent = "😎";
+      if (game.status === "lost") $("face").textContent = "😵";
+      board.querySelectorAll(".cell").forEach((el) => {
+        el.oncontextmenu = (ev) => { ev.preventDefault(); act("flag", el); };
+        el.onclick = () => act("reveal", el);
+        el.ondblclick = () => act("chord", el);
+      });
+    }
+
+    async function act(kind, el) {
+      if (!game || game.status === "won" || game.status === "lost") return;
+      const r = +el.dataset.r, c = +el.dataset.c;
+      game = await (await fetch(`/api/games/${game.id}/${kind}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ r, c }),
+      })).json();
+      draw();
+    }
+
+    $("new").onclick = newGame;
+    $("face").onclick = newGame;
+
+    async function loadModels() {
+      try {
+        const data = await (await fetch("/api/models")).json();
+        $("model").innerHTML = (data.models || []).map((m) =>
+          `<option value="${m.model}::${m.effort}">${m.label}</option>`).join("");
+      } catch {
+        $("model").innerHTML = `<option>cli2api offline</option>`;
+      }
+    }
+
+    $("ai").onclick = async () => {
+      const [model, effort] = $("model").value.split("::");
+      log(`Starting ${model} @ ${effort} on ${size.width}×${size.height}…`);
+      await newGame();
+      const res = await fetch(`/api/games/${game.id}/ai`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, effort }),
+      });
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop();
+        for (const part of parts) {
+          const ev = part.match(/^event: (\w+)/)?.[1];
+          const dataLine = part.split("\n").find((l) => l.startsWith("data: "));
+          if (!dataLine) continue;
+          const data = JSON.parse(dataLine.slice(6));
+          if (ev === "turn") {
+            Object.assign(game, data);
+            draw();
+            log(`turn ${data.turn}  ${data.status}  ${(data.progress * 100).toFixed(1)}%`);
+          }
+          if (ev === "done") log(JSON.stringify({ outcome: data.outcome, tokens: data.totalTokens, s: (data.timeMs/1000).toFixed(1) }, null, 0));
+        }
+      }
+    };
+
+    $("bench").onclick = async () => {
+      const res = await fetch("/api/bench", { method: "POST" });
+      const data = await res.json();
+      log("Benchmark queued: every model/effort plays the same 10 seeded 50×50 boards.");
+      log(JSON.stringify(data.bench || data, null, 2));
+    };
+
+    function group(games) {
+      const map = new Map();
+      for (const g of games) {
+        const key = g.label || `${g.model} / ${g.effort}`;
+        const b = map.get(key) ?? { label: key, progress: [], tokens: [], times: [] };
+        b.progress.push((g.progress || 0) * 100);
+        b.tokens.push(g.totalTokens || 0);
+        b.times.push((g.timeMs || 0) / 1000);
+        map.set(key, b);
+      }
+      return [...map.values()];
+    }
+    function box(id, title, field, unit, groups) {
+      const traces = groups.map((g) => ({
+        type: "box", x: g[field], y: g[field].map(() => g.label), orientation: "h",
+        name: g.label, boxmean: true, marker: { color: "#c6f04d" }, line: { color: "#9ccc3a" }, showlegend: false,
+        hovertemplate: `%{x:.2f} ${unit}<extra>${g.label}</extra>`,
+      }));
+      Plotly.newPlot(id, traces, {
+        paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+        font: { color: "#cfe0c8" }, margin: { l: 220, r: 20, t: 40, b: 40 },
+        height: Math.max(320, groups.length * 28 + 80),
+        title: { text: title, font: { size: 15 } },
+        xaxis: { gridcolor: "#2a3528", zeroline: false },
+      }, { displayModeBar: false, responsive: true });
+    }
+    async function loadResults() {
+      const data = await (await fetch("/api/results")).json();
+      const groups = group(data.games || []);
+      if (!groups.length) return;
+      box("box-progress", "Progress (% safe cells)", "progress", "%", groups);
+      box("box-tokens", "Tokens per game", "tokens", "tok", groups);
+      box("box-time", "Seconds per game", "times", "s", groups);
+    }
+
+    loadModels();
+    newGame();
+  </script>
+</body>
+</html>

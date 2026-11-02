@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+*.log
+.DS_Store
+
+# Runtime state written while a benchmark is running
+results/status.json
+
+# Unredacted local copy of the results log (contains account/billing text from the CLI)
+results/games.raw.jsonl
